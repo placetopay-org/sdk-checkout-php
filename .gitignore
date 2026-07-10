@@ -1,0 +1,20 @@
+# Dependencies
+/vendor/
+
+# Test and coverage artifacts
+/coverage.xml
+/.phpunit.result.cache
+/.php-cs-fixer.cache
+
+# Local tooling and workspace files
+/.idea/
+/.vscode/
+/.claude/
+.DS_Store
+*.log
+*.tmp
+*.temp
+
+# Local env/secrets
+/.env
+/.env.local
