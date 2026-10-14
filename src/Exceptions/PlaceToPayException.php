@@ -1,41 +1,19 @@
 <?php
 
-declare(strict_types=1);
+namespace PlacetoPay\PlacetoPaySdk\Exceptions;
 
-namespace PlaceToPay\Checkout\Exceptions;
+use Exception;
+use Throwable;
 
-use PlaceToPay\Checkout\Models\Common\Status;
-
-class PlaceToPayException extends \RuntimeException
+class PlacetoPayException extends Exception
 {
-    public function __construct(
-        string $message,
-        private readonly ?Status $status = null,
-        private readonly ?string $reason = null,
-        private readonly ?int $requestId = null,
-        private readonly ?string $rawBody = null,
-        ?\Throwable $previous = null,
-    ) {
-        parent::__construct($message, 0, $previous);
+    public static function readException(Throwable $e)
+    {
+        return $e->getMessage() . ' ON ' . $e->getFile() . ' LINE ' . $e->getLine() . ' [' . get_class($e) . ']';
     }
 
-    public function getStatus(): ?Status
+    public static function forDataNotProvided(string $message = ''): self
     {
-        return $this->status;
-    }
-
-    public function getReason(): ?string
-    {
-        return $this->reason;
-    }
-
-    public function getRequestId(): ?int
-    {
-        return $this->requestId;
-    }
-
-    public function getRawBody(): ?string
-    {
-        return $this->rawBody;
+        return new self($message);
     }
 }

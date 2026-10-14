@@ -1,0 +1,31 @@
+name: PHPUnit Tests
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version:
+          - "7.4"
+          - "8.0"
+          - "8.1"
+          - "8.2"
+          - "8.3"
+          - "8.4"
+          - "8.5"
+        dependency-versions:
+          - "lowest"
+          - "highest"
+    steps:
+      - uses: actions/checkout@v1
+      - name: Validate composer.json and composer.lock
+        run: composer validate
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-suggest
+      - name: Check code style
+        run: composer run-script php-cs-fixer
+      - name: Run test suite
+        run: composer run-script testdox
+      - name: Upload coverage
+        run: bash <(curl -s https://codecov.io/bash)

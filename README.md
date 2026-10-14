@@ -1,224 +1,83 @@
-# PlaceToPay Checkout - SDK PHP
+# PlacetoPay PHP SDK
 
-[![CI](https://github.com/placetopay/checkout-php/actions/workflows/ci.yml/badge.svg)](https://github.com/placetopay/checkout-php/actions/workflows/ci.yml)
-[![Packagist Version](https://img.shields.io/packagist/v/placetopay/checkout.svg)](https://packagist.org/packages/placetopay/checkout)
-[![PHP 8.2+](https://img.shields.io/badge/PHP-8.2+-blue.svg)](https://www.php.net/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+With this code you will be able to quickly connect with the PlacetoPay Checkout service.
 
-SDK oficial de PHP 8.2+ para **PlaceToPay Web Checkout**.
+In order to see more comprehensive examples of how it works, please refer to the examples and the [documentation](https://docs-gateway.placetopay.com/)
 
-Esta libreria te permite integrar pagos de forma simple: crear sesion,
-redirigir al comprador y confirmar el estado final de la transaccion desde tu
-aplicacion.
+### Migration from version 1
 
-Terminología estándar del proyecto: ver `../docs/GLOSARIO.md`.
+- [ ] Change the settings parameter `url` for `baseUrl`
+- [ ] If you have set the `timeout` for rest then change it to the root of the settings
+- [ ] `PlacetoPayServiceException` is thrown instead of returning an ERROR status response
 
-> Si vienes del SDK previo, revisa `MIGRATION.md` para mapear metodos y modelos.
+## Installation
 
----
+Using composer from your project
 
-## Instalación
-
-```bash
-composer require placetopay/checkout
+```
+composer require placetopay/placetopay-sdk
 ```
 
-Requiere **PHP 8.2+**.
+Or If you just want to run the examples contained in this project run "composer install" to load the vendor autoload
 
-## Versiones soportadas
+## Usage
 
-| Versión SDK | PHP | Estado | Parches de seguridad hasta |
-|-------------|-----|--------|----------------------------|
-| `1.x` | 8.2, 8.3, 8.4 | **Actual** | Hasta el siguiente major |
-| `0.x` | - | Pre-release | End-of-life |
+Create an object with the configuration required for that instance
 
-## Quickstart (5 minutos)
-
-Con este ejemplo puedes crear una sesion y obtener el `processUrl` para
-enviar al comprador al checkout de PlaceToPay.
-
-```php
-use PlaceToPay\Checkout\Checkout;
-use PlaceToPay\Checkout\Country;
-use PlaceToPay\Checkout\Environment;
-use PlaceToPay\Checkout\Models\Common\Amount;
-use PlaceToPay\Checkout\Models\Session\CreateSessionRequest;
-use PlaceToPay\Checkout\Models\Session\Payment;
-
-$checkout = Checkout::builder()
-    ->login('YOUR_LOGIN')
-    ->secretKey('YOUR_SECRET_KEY')
-    ->environment(Environment::SANDBOX)
-    ->country(Country::COLOMBIA)
-    ->build();
-
-$response = $checkout->createSession(
-    CreateSessionRequest::builder()
-        ->ipAddress('127.0.0.1')
-        ->userAgent('MyApp/1.0')
-        ->returnUrl('https://example.com/return')
-        ->payment(Payment::of('ORDER-0001', 'Demo purchase', new Amount('COP', 50000)))
-        ->build()
-);
-
-echo $response->processUrl;
-echo $response->requestId;
+```php 
+$placetopay = new PlacetoPay\PlacetoPaySdk\PlacetoPay([
+    'login' => 'YOUR_LOGIN', // Provided by PlacetoPay
+    'tranKey' => 'YOUR_TRANSACTIONAL_KEY', // Provided by PlacetoPay
+    'baseUrl' => 'https://THE_BASE_URL_TO_POINT_AT',
+    'timeout' => 10, // (optional) 15 by default
+]);
 ```
 
-Después del pago:
+### Creating a new Payment Request to obtain a Session Payment URL
 
-```php
-use PlaceToPay\Checkout\Models\Common\StatusCode;
+Just provide the information of the payment needed and you will get a process url if its successful, for this example we are using the MINIMUM INFORMATION that needs to be provided, to see the full structure refer to the documentation or the example on [examples/basic/payment.php](examples/basic/payment.php)
 
-$info = $checkout->querySession($response->requestId);
+```
+$reference = 'COULD_BE_THE_PAYMENT_ORDER_ID";
+$request = [
+    'payment' => [
+        'reference' => $reference,
+        'description' => 'Testing payment',
+        'amount' => [
+            'currency' => 'USD',
+            'total' => 120,
+        ],
+    ],
+    'expiration' => date('c', strtotime('+2 days')),
+    'returnUrl' => 'http://example.com/response?reference=' . $reference,
+    'ipAddress' => '127.0.0.1',
+    'userAgent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36',
+];
 
-if ($info->status->status === StatusCode::APPROVED) {
-    // completar orden
+$response = $placetopay->request($request);
+if ($response->isSuccessful()) {
+    // STORE THE $response->requestId() and $response->processUrl() on your DB associated with the payment order
+    // Redirect the client to the processUrl or display it on the JS extension
+    $response->processUrl();
+} else {
+    // There was some error so check the message and log it
+    $response->status()->message();
 }
 ```
 
-## Que puedes hacer con este SDK
+### Obtain information about a previously created session
 
-| Endpoint | Método | Notas |
-|---|---|---|
-| `POST /api/session` | `createSession` | Soporta `autopay`, `metadata`, `dispersion` |
-| `POST /api/session/{id}` | `querySession` | |
-| `POST /api/session/{id}/cancel` | `cancelSession` | Nuevo vs SDK de referencia |
-| `POST /api/collect` | `collect` | Cobro con instrumento tokenizado |
-| `POST /api/reverse` | `reverse` | Por `internalReference` |
-| `POST /api/instrument/invalidate` | `invalidateToken` | Nuevo vs SDK de referencia |
-| Verificación webhook SHA-256 | `NotificationVerifier::verifySha256` | Recomendado |
-| Verificación webhook SHA-1 | `NotificationVerifier::verifySha1Legacy` | Solo compatibilidad legacy |
+```
+$response = $placetopay->query('THE_REQUEST_ID_TO_QUERY');
 
-## Flujo de integracion recomendado
+if ($response->isSuccessful()) {
+    // In order to use the functions please refer to the PlacetoPay\PlacetoPaySdk\Message\RedirectInformation class
 
-Flujo de sesion (checkout web):
-
-1. `createSession` para iniciar el checkout y obtener `requestId` + `processUrl`.
-2. `querySession` para confirmar estado despues del retorno del pagador.
-3. `cancelSession` para invalidar una sesion pendiente cuando aplica.
-
-Flujo de tokenizacion y post-pago:
-
-1. `collect` para cobrar con instrumento tokenizado.
-2. `reverse` para reversar por `internalReference`.
-3. `invalidateToken` para revocar el token.
-
-## Funcionalidades incluidas en v1
-
-- Soporte de `auth.additional` via `CheckoutConfig::builder()->authAdditional(...)`.
-- Soporte de `CollectRequest.provider` para override opcional de procesador.
-- Helpers de estado en `Status` y `Transaction` (`isApproved`, `isRejected`, `isError`, `isSuccessful`).
-- Helpers de sesion en `SessionInformation` (`lastTransaction`, `lastApprovedTransaction`, `lastAuthorization`).
-- Compatibilidad con valores heterogeneos en `processorFields[].value`.
-- Validacion local de documentos LatAm con `DocumentValidator`.
-
-## Casos de uso comunes
-
-- Checkout estandar en web con redireccion (`createSession` + `querySession`).
-- Cobro con token guardado (`collect`) para compras recurrentes.
-- Reversion de pagos (`reverse`) y revocacion de token (`invalidateToken`).
-
-### Limitaciones por pais
-
-- Ecuador: la funcionalidad `autopay` no esta habilitada en WebCheckout para este pais. Si se envia en `createSession`, puede ser rechazada por el gateway.
-- Ecuador: la recurrencia en pago unico no esta disponible actualmente.
-
-### Compatibilidad de respuestas del gateway
-
-- En respuestas de `querySession` / `collect`, `payment[].processorFields[].value` puede llegar como string, numero, booleano u objeto JSON.
-- El SDK ya modela ese valor como `mixed` para soportar metadatos de procesador no-string.
-
-## Configuración
-
-`CheckoutConfig::builder()` / `Checkout::builder()`:
-
-| Metodo | Default | Uso |
-|---|---|---|
-| `login(string)` | requerido | Login de comercio |
-| `secretKey(string)` | requerido | Secret de comercio |
-| `environment(Environment)` | `SANDBOX` | Sandbox/Producción |
-| `country(?Country)` | `null` | Defaults por pais |
-| `baseUrl(?string)` | - | Override explícito (solo HTTPS) |
-| `connectTimeout(int)` | `10` | Segundos |
-| `readTimeout(int)` | `30` | Segundos |
-| `retryMaxAttempts(int)` | `3` | Mínimo 1 |
-| `retryInitialDelayMs(int)` | `200` | Backoff inicial |
-| `retryMaxDelayMs(int)` | `5000` | Tope de backoff |
-| `userAgentSuffix(?string)` | `null` | Sufijo user-agent |
-| `additionalHeaders(array)` | `[]` | Headers extra |
-| `authAdditional(?array)` | `null` | Campo `auth.additional` |
-| `logger(?LoggerInterface)` | `null` | DEBUG con payload redactado |
-| `httpClient(?ClientInterface)` | SDK-owned | Cliente inyectado |
-
-## Manejo de errores
-
-Todas las excepciones extienden `PlaceToPayException`:
-
-- `AuthenticationException`
-- `ValidationException`
-- `NotFoundException`
-- `RateLimitException`
-- `NetworkException`
-- `ServerException`
-
-## Verificación de webhook
-
-```php
-use PlaceToPay\Checkout\Webhooks\NotificationPayload;
-use PlaceToPay\Checkout\Webhooks\NotificationVerifier;
-
-$payload = NotificationPayload::fromArray($request->all());
-
-if (!NotificationVerifier::verifySha256($payload, $secretKey)) {
-    return response('Invalid signature', 403);
+    if ($response->status()->isApproved()) {
+        // The payment has been approved
+    }
+} else {
+    // There was some error with the connection so check the message
+    print_r($response->status()->message() . "\n");
 }
 ```
-
-> Las notificaciones webhook de PlaceToPay están confirmadas sobre SHA-256.
-
-## Idempotencia
-
-```php
-$checkout->createSession($request, idempotencyKey: 'order-42-attempt-1');
-$checkout->collect($collectRequest, idempotencyKey: 'collect-42-attempt-1');
-$checkout->reverse('INT_REF_001', idempotencyKey: 'reverse-42-attempt-1');
-```
-
-## Seguridad
-
-- Firma: SHA-256.
-- Nonce: 16 bytes criptográficos via `random_bytes()`.
-- TLS: HTTPS obligatorio.
-- Logging: redacción automática de PAN, CVV, `tranKey`, `nonce`, token, PIN, password y `secretKey`.
-- Disclosure: ver [SECURITY.md](SECURITY.md).
-
-## Pruebas locales con app de ejemplo
-
-El directorio `examples/portal/` contiene un portal liviano para validar flujos end-to-end. Ver [`examples/README.md`](examples/README.md).
-
-```bash
-php -S 127.0.0.1:8090 -t examples/portal examples/portal/router.php
-# http://127.0.0.1:8090
-```
-
-Ingresa `login` y `secret_key` desde el UI en la sección Connect antes de invocar acciones del API.
-
-## Instalar desde código fuente
-
-```bash
-git clone https://github.com/placetopay/checkout-php.git
-cd checkout-php
-composer install
-composer test
-composer stan
-composer cs:check
-```
-
-## Contribuir
-
-Ver [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Licencia
-
-MIT, ver [LICENSE](LICENSE).
