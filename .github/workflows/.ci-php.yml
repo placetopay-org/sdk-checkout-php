@@ -18,14 +18,23 @@ jobs:
           - "lowest"
           - "highest"
     steps:
-      - uses: actions/checkout@v1
-      - name: Validate composer.json and composer.lock
+      - uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          coverage: xdebug
+      - name: Validate composer.json
         run: composer validate
       - name: Install dependencies
-        run: composer install --prefer-dist --no-progress --no-suggest
+        uses: ramsey/composer-install@v3
+        with:
+          dependency-versions: ${{ matrix.dependency-versions }}
       - name: Check code style
+        if: matrix.php-version == '8.3' && matrix.dependency-versions == 'highest'
         run: composer run-script php-cs-fixer
       - name: Run test suite
         run: composer run-script testdox
       - name: Upload coverage
+        if: matrix.php-version == '8.3' && matrix.dependency-versions == 'highest'
         run: bash <(curl -s https://codecov.io/bash)
