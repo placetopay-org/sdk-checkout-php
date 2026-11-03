@@ -11,6 +11,9 @@ use PlacetoPay\PlacetoPaySdk\Exceptions\PlacetoPayException;
 
 class Settings extends Entity
 {
+    public const DEFAULT_ALGORITHM = 'sha256';
+    public const ALGORITHMS = ['sha256', 'sha1'];
+
     protected readonly string $baseUrl;
     protected readonly int $timeout;
     protected readonly bool $verifySsl;
@@ -18,6 +21,7 @@ class Settings extends Entity
     protected readonly string $tranKey;
     protected readonly array $headers;
     protected readonly array $authAdditional;
+    protected readonly string $algorithm;
     protected readonly Logger $logger;
 
     protected ?Client $client;
@@ -36,6 +40,11 @@ class Settings extends Entity
             throw PlacetoPayException::forDataNotProvided('No service URL provided to use');
         }
 
+        $algorithm = $data['algorithm'] ?? self::DEFAULT_ALGORITHM;
+        if (!in_array($algorithm, self::ALGORITHMS, true)) {
+            throw PlacetoPayException::forDataNotProvided('The algorithm must be one of: ' . implode(', ', self::ALGORITHMS));
+        }
+
         $this->baseUrl = str_ends_with($data['baseUrl'], '/') ? $data['baseUrl'] : $data['baseUrl'] . '/';
         $this->timeout = $data['timeout'] ?? 15;
         $this->verifySsl = $data['verifySsl'] ?? true;
@@ -43,6 +52,7 @@ class Settings extends Entity
         $this->tranKey = $data['tranKey'];
         $this->headers = $data['headers'] ?? [];
         $this->authAdditional = $data['authAdditional'] ?? [];
+        $this->algorithm = $algorithm;
         $this->client = $data['client'] ?? null;
         $this->logger = new Logger($data['logger'] ?? null);
     }
@@ -70,6 +80,11 @@ class Settings extends Entity
     public function tranKey(): string
     {
         return $this->tranKey;
+    }
+
+    public function algorithm(): string
+    {
+        return $this->algorithm;
     }
 
     public function headers(): array
@@ -101,12 +116,13 @@ class Settings extends Entity
         return $this->carrier ??= new RestCarrier($this);
     }
 
-    public function authentication(): Authentication
+    public function authentication(?string $algorithm = null): Authentication
     {
         return new Authentication([
             'login' => $this->login(),
             'tranKey' => $this->tranKey(),
             'authAdditional' => $this->authAdditional,
+            'algorithm' => $algorithm ?? $this->algorithm(),
         ]);
     }
 }

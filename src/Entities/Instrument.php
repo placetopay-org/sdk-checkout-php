@@ -11,6 +11,7 @@ class Instrument extends Entity
     protected ?Credit $credit = null;
     protected string $pin;
     protected string $password;
+    protected string $pocket;
 
     public function __construct(array $data = [])
     {
@@ -20,6 +21,7 @@ class Instrument extends Entity
 
         $this->pin = $data['pin'] ?? '';
         $this->password = $data['password'] ?? '';
+        $this->pocket = (string)($data['pocket'] ?? '');
     }
 
     public function bank(): ?Account
@@ -47,6 +49,11 @@ class Instrument extends Entity
         return $this->password;
     }
 
+    public function pocket(): string
+    {
+        return $this->pocket;
+    }
+
     public function toArray(): array
     {
         return $this->arrayFilter([
@@ -55,6 +62,7 @@ class Instrument extends Entity
             'token' => $this->token()?->toArray(),
             'pin' => $this->pin(),
             'password' => $this->password(),
+            'pocket' => $this->pocket(),
         ]);
     }
 }

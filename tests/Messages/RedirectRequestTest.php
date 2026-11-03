@@ -215,4 +215,17 @@ class RedirectRequestTest extends BaseTestCase
         $this->assertEquals($data['payment']['modifiers'], $request->payment()->modifiersToArray());
         $this->assertEquals($request->toArray()['payment'], $payment);
     }
+
+    public function testItSendsTheSessionTypeForAPreauthorization()
+    {
+        $request = new RedirectRequest($this->baseRequest([
+            'type' => 'checkin',
+            'metadata' => ['requiresConfirmation' => true],
+        ]));
+
+        $this->assertSame('checkin', $request->type());
+        $this->assertSame('checkin', $request->toArray()['type']);
+        $this->assertSame(['requiresConfirmation' => true], $request->toArray()['metadata']);
+        $this->assertArrayNotHasKey('type', (new RedirectRequest($this->baseRequest()))->toArray());
+    }
 }

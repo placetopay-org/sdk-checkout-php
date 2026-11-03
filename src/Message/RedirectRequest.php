@@ -26,6 +26,7 @@ class RedirectRequest extends Entity
     protected bool $captureAddress = false;
     protected bool $skipResult = false;
     protected bool $noBuyerFill = false;
+    protected string $type = '';
 
     protected array $metadata = [];
 
@@ -36,7 +37,7 @@ class RedirectRequest extends Entity
             $this->expiration = date('c', strtotime('+1 day'));
         }
 
-        $this->load($data, ['returnUrl', 'paymentMethod', 'cancelUrl', 'ipAddress', 'userAgent', 'expiration', 'captureAddress', 'skipResult', 'noBuyerFill']);
+        $this->load($data, ['returnUrl', 'paymentMethod', 'cancelUrl', 'ipAddress', 'userAgent', 'expiration', 'captureAddress', 'skipResult', 'noBuyerFill', 'type']);
 
         if (isset($data['locale'])) {
             $this->setLocale($data['locale']);
@@ -177,6 +178,11 @@ class RedirectRequest extends Entity
         return filter_var($this->noBuyerFill, FILTER_VALIDATE_BOOLEAN);
     }
 
+    public function type(): string
+    {
+        return $this->type;
+    }
+
     public function metadata(): array
     {
         return $this->metadata;
@@ -200,6 +206,7 @@ class RedirectRequest extends Entity
             'captureAddress' => $this->captureAddress(),
             'skipResult' => $this->skipResult(),
             'noBuyerFill' => $this->noBuyerFill(),
+            'type' => $this->type(),
             'metadata' => $this->metadata(),
         ]);
     }

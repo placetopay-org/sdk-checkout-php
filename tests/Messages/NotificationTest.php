@@ -36,4 +36,29 @@ class NotificationTest extends BaseTestCase
         $this->assertSame(StatusType::REJECTED, $notification->status()->type());
         $this->assertFalse($notification->isApproved());
     }
+
+    public function testItValidatesASha256Signature()
+    {
+        $data = [
+            'status' => ['status' => 'APPROVED', 'reason' => '00', 'message' => 'Aprobada', 'date' => '2026-11-03T14:44:03-05:00'],
+            'requestId' => 898,
+            'reference' => 'TEST-1793735042',
+            'signature' => 'sha256:' . hash('sha256', '898APPROVED2026-11-03T14:44:03-05:00024h1IlD'),
+        ];
+
+        $this->assertTrue((new Notification($data, '024h1IlD'))->isValidNotification());
+        $this->assertFalse((new Notification($data, 'other-tran-key'))->isValidNotification());
+    }
+
+    public function testItRejectsASha256SignatureWithoutItsPrefix()
+    {
+        $data = [
+            'status' => ['status' => 'APPROVED', 'reason' => '00', 'message' => 'Aprobada', 'date' => '2026-11-03T14:44:03-05:00'],
+            'requestId' => 898,
+            'reference' => 'TEST-1793735042',
+            'signature' => hash('sha256', '898APPROVED2026-11-03T14:44:03-05:00024h1IlD'),
+        ];
+
+        $this->assertFalse((new Notification($data, '024h1IlD'))->isValidNotification());
+    }
 }

@@ -12,6 +12,8 @@ class StatusTypeTest extends BaseTestCase
     {
         $this->assertSame(StatusType::APPROVED, StatusType::fromService('APPROVED'));
         $this->assertSame(StatusType::UNKNOWN, StatusType::fromService('SOMETHING_NEW'));
+        $this->assertSame(StatusType::PENDING_CONFIRMATION, StatusType::fromService('PENDING_CONFIRMATION'));
+        $this->assertSame(StatusType::PARTIAL_EXPIRED, StatusType::fromService('PARTIAL_EXPIRED'));
     }
 
     public function testTheStatusEntityExposesItsType()

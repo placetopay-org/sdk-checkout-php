@@ -3,6 +3,7 @@
 namespace PlacetoPay\PlacetoPaySdk\Carrier;
 
 use PlacetoPay\PlacetoPaySdk\Exceptions\PlacetoPayException;
+use PlacetoPay\PlacetoPaySdk\Helpers\Settings;
 use SoapHeader;
 use SoapVar;
 use stdClass;
@@ -37,7 +38,7 @@ class Authentication
         $this->tranKey = $config['tranKey'];
         $this->overridden = isset($config['auth']);
         $this->auth = $config['auth'] ?? [];
-        $this->algorithm = $config['algorithm'] ?? 'sha1';
+        $this->algorithm = $config['algorithm'] ?? Settings::DEFAULT_ALGORITHM;
         $this->additional = $config['authAdditional'] ?? [];
 
         $this->generate();

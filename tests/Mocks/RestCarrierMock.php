@@ -15,6 +15,8 @@ use Psr\Http\Message\RequestInterface;
 
 class RestCarrierMock
 {
+    public const TRAN_KEY = 'kXf6FDYdQTH4dhwWs3Ue';
+
     protected static ?self $_instance = null;
 
     protected RequestInterface $request;
@@ -49,7 +51,7 @@ class RestCarrierMock
         $this->headers = $request->getHeaders();
 
         try {
-            $this->handleAuthentication();
+            $this->handleAuthentication($request->getUri()->getPath());
         } catch (Exception $e) {
             return $this->response(401, ['status' => Status::quick(StatusType::FAILED, '401', $e->getMessage())->toArray()]);
         }
@@ -62,7 +64,16 @@ class RestCarrierMock
                 return $this->transaction();
             case '/api/collect':
                 return $this->collect();
+            case '/api/instrument/invalidate':
+                return $this->invalidateToken();
+            case '/api/gateway/information':
+                return $this->instrumentInformation();
+            case '/api/gateway/token':
+                return $this->tokenInformation();
             default:
+                if (preg_match('/api\/session\/(\d+)\/cancel/', $path, $matches)) {
+                    return $this->cancelSession($matches[1]);
+                }
                 if (preg_match('/api\/session\/(\d+)/', $path, $matches)) {
                     return $this->query($matches[1]);
                 }
@@ -160,8 +171,75 @@ class RestCarrierMock
 
         return match ($action) {
             'reverse' => $this->reverse(),
+            'checkout', 'reauthorization', 'confirm' => $this->transactionAction(),
+            'cancel' => $this->cancelTransaction(),
             default => throw new Exception('No transaction action mocked ' . $action),
         };
+    }
+
+    private function transactionAction(): FulfilledPromise
+    {
+        $internalReference = $this->parameters()['internalReference'];
+
+        if ($internalReference === 404) {
+            return $this->response(400, ['status' => Status::quick(StatusType::FAILED, 'request_not_valid', 'No existe la transacción que busca', '2025-01-21T21:20:07-05:00')->toArray()]);
+        }
+
+        $amount = $this->parameters()['amount'] ?? ['currency' => 'USD', 'total' => 500];
+
+        return $this->response(200, [
+            'status' => Status::quick(StatusType::APPROVED, '00', 'Aprobada', '2021-11-30T09:36:00-05:00')->toArray(),
+            'payment' => [
+                'status' => Status::quick(StatusType::APPROVED, '00', 'Aprobada', '2021-11-30T09:35:59-05:00')->toArray(),
+                'internalReference' => $internalReference + 1,
+                'paymentMethod' => 'visa',
+                'paymentMethodName' => 'Visa',
+                'issuerName' => 'JPMORGAN CHASE BANK, N.A.',
+                'amount' => ['from' => $amount, 'to' => $amount, 'factor' => 1],
+                'authorization' => '550044',
+                'reference' => '1122334455',
+                'receipt' => '499435368733',
+                'franchise' => 'PS_VS',
+                'refunded' => false,
+            ],
+        ]);
+    }
+
+    private function cancelTransaction(): FulfilledPromise
+    {
+        $response = '{"status": {"status": "REJECTED","reason": "?C","message": "Cancelada por el comercio","date": "2025-01-21T21:20:07-05:00"},"payment": {"status": {"status": "REJECTED","reason": "?C","message": "Cancelada por el comercio","date": "2025-01-21T21:20:07-05:00"},"internalReference": 84,"paymentMethod": "visa","paymentMethodName": "Visa","issuerName": "JPMORGAN CHASE BANK, N.A.","amount": {"from": {"currency": "USD","total": 100},"to": {"currency": "USD","total": 100},"factor": 1},"authorization": "000000","reference": "TEST_VISA","receipt": "426882","franchise": "CR_VS","refunded": false}}';
+        return $this->response(200, json_decode($response, true));
+    }
+
+    private function cancelSession($requestId): FulfilledPromise
+    {
+        if ($requestId != 10012) {
+            return $this->response(400, ['status' => Status::quick(StatusType::FAILED, 'request_not_valid', 'No existe la sesión que busca', '2025-07-11T14:05:44-05:00')->toArray()]);
+        }
+
+        $response = '{"status": {"status": "OK","reason": "00","message": "La petición se ha procesado correctamente","date": "2025-07-11T14:05:44-05:00"},"session": {"requestId": 10012,"status": {"status": "REJECTED","reason": "MC","message": "La petición ha sido cancelada por el comercio","date": "2025-07-11T14:05:44-05:00"},"request": {"locale": "es_CO","payer": {"document": "118877455","documentType": "CC","name": "John","surname": "Doe","email": "Johny@Doe.com","mobile": "+573111111111"},"payment": {"reference": "Ord1001","description": "Pago de prueba","amount": {"currency": "USD","total": 20000},"allowPartial": false,"subscribe": false},"returnUrl": "https://mysite.com/response/32120","ipAddress": "127.0.0.1","userAgent": "Placetopay Sandbox","expiration": "2025-07-11T19:25:39.497Z"},"payment": null,"subscription": null}}';
+        return $this->response(200, json_decode($response, true));
+    }
+
+    private function invalidateToken(): FulfilledPromise
+    {
+        if (($this->parameters()['instrument']['token']['token'] ?? null) === 'invalid_token') {
+            return $this->response(400, ['status' => Status::quick(StatusType::FAILED, 'XN', 'El token usado es inválido', '2022-07-27T14:51:27-05:00')->toArray()]);
+        }
+
+        return $this->response(200, ['status' => Status::quick(StatusType::OK, '00', 'La petición se ha procesado correctamente', '2022-07-27T14:51:27-05:00')->toArray()]);
+    }
+
+    private function instrumentInformation(): FulfilledPromise
+    {
+        $response = '{"status": {"status": "OK","reason": "00","message": "The request has been processed successfully","date": "2021-09-21T09:26:11-05:00"},"provider": "CREDIBANCO","serviceCode": "CR_VS","cardType": "C","cardTypes": ["C","R","P"],"displayInterest": "false","requireOtp": "false","requireCvv2": "true","threeDS": "optional","credits": [{"description": "Cuotas","code": "0","groupCode": "C","type": "00","installments": ["1","2","3","6","12"]}]}';
+        return $this->response(200, json_decode($response, true));
+    }
+
+    private function tokenInformation(): FulfilledPromise
+    {
+        $response = '{"status": {"status": "OK","reason": "00","message": "La petición se ha procesado correctamente","date": "2021-06-17T11:29:37-05:00"},"data": {"id": 1,"type": "card","token": "faketoken12f233bd8f5d42138d681bf07ea8295429df07a4af287703e30c891","subtoken": "fakesubtoken00005","franchise": "visa","franchiseName": "Visa","issuerName": "TESTING","lastDigits": "1111","validUntil": "12/29","owner": "John Doe","bin": "411111"}}';
+        return $this->response(200, json_decode($response, true));
     }
 
     public function reverse(): FulfilledPromise
@@ -183,7 +261,7 @@ class RestCarrierMock
         return $this->response(200, json_decode($response, true));
     }
 
-    private function handleAuthentication(): void
+    private function handleAuthentication(string $path): void
     {
         $auth = $this->parameters['auth'] ?? null;
         if (!$auth || !isset($auth['login']) || !isset($auth['tranKey']) || !isset($auth['seed']) || !isset($auth['nonce'])) {
@@ -196,6 +274,16 @@ class RestCarrierMock
 
         if ($auth['login'] == 'failed_login') {
             throw new Exception('Autenticación fallida 101', 101);
+        }
+
+        $algorithms = str_starts_with($path, '/api/gateway/') ? ['sha256'] : ['sha1', 'sha256'];
+        $digests = array_map(
+            fn (string $algorithm) => base64_encode(hash($algorithm, base64_decode($auth['nonce']) . $auth['seed'] . self::TRAN_KEY, true)),
+            $algorithms,
+        );
+
+        if (!in_array($auth['tranKey'], $digests, true)) {
+            throw new Exception('Autenticación fallida 102', 102);
         }
     }
 }

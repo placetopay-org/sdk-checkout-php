@@ -13,13 +13,16 @@ class Token extends Entity
     protected string $issuerName = '';
     protected string $lastDigits = '';
     protected string $validUntil = '';
+    protected string $bin = '';
+    protected string $owner = '';
     // Just in case the token will be utilized
     protected string $cvv = '';
-    protected int $installments = 0;
+    protected ?int $installments = null;
 
     public function __construct(array $data = [])
     {
-        $this->load($data, ['token', 'subtoken', 'franchise', 'franchiseName', 'issuerName', 'lastDigits', 'validUntil', 'cvv', 'installments']);
+        $this->load($data, ['token', 'subtoken', 'franchise', 'franchiseName', 'issuerName', 'lastDigits', 'validUntil', 'bin', 'owner', 'cvv']);
+        $this->installments = is_numeric($data['installments'] ?? null) ? (int)$data['installments'] : null;
     }
 
     public function token(): string
@@ -57,14 +60,24 @@ class Token extends Entity
         return $this->validUntil;
     }
 
+    public function bin(): string
+    {
+        return $this->bin;
+    }
+
+    public function owner(): string
+    {
+        return $this->owner;
+    }
+
     public function cvv(): string
     {
         return $this->cvv;
     }
 
-    public function installments(): string
+    public function installments(): ?int
     {
-        return (string)$this->installments;
+        return $this->installments;
     }
 
     public function expiration(): string
@@ -82,6 +95,8 @@ class Token extends Entity
             'issuerName' => $this->issuerName(),
             'lastDigits' => $this->lastDigits(),
             'validUntil' => $this->validUntil(),
+            'bin' => $this->bin(),
+            'owner' => $this->owner(),
             'cvv' => $this->cvv(),
             'installments' => $this->installments(),
         ]);
