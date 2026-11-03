@@ -9,6 +9,7 @@ use PlacetoPay\PlacetoPaySdk\Traits\StatusTrait;
 class Notification extends Entity
 {
     use StatusTrait;
+    private const SHA256_PREFIX = 'sha256:';
 
     protected int $requestId;
     protected string $reference;
@@ -37,7 +38,11 @@ class Notification extends Entity
 
     public function makeSignature(): string
     {
-        return sha1($this->requestId() . $this->status()->status() . $this->status()->date() . $this->tranKey);
+        $data = $this->requestId() . $this->status()->status() . $this->status()->date() . $this->tranKey;
+
+        return str_starts_with($this->signature(), self::SHA256_PREFIX)
+            ? self::SHA256_PREFIX . hash('sha256', $data)
+            : sha1($data);
     }
 
     public function isValidNotification(): bool

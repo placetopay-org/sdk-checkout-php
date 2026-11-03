@@ -8,7 +8,7 @@ use PlacetoPay\PlacetoPaySdk\Enums\StatusType;
 class Status extends Entity
 {
     protected string $status;
-    protected string $reason;
+    protected string $reason = '';
     protected string $message = '';
     protected string $date = '';
 
