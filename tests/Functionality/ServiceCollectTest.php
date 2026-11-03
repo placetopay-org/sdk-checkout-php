@@ -6,6 +6,7 @@ use PlacetoPay\PlacetoPaySdk\Entities\Transaction;
 use PlacetoPay\PlacetoPaySdk\Enums\StatusType;
 use PlacetoPay\PlacetoPaySdk\Exceptions\PlacetoPayException;
 use PlacetoPay\PlacetoPaySdk\Tests\BaseTestCase;
+use PlacetoPay\PlacetoPaySdk\Tests\Mocks\RestCarrierMock;
 
 class ServiceCollectTest extends BaseTestCase
 {
@@ -80,5 +81,43 @@ class ServiceCollectTest extends BaseTestCase
                 ],
             ],
         ]));
+    }
+
+    public function testItOnlySendsTheInstallmentsWhenRequested()
+    {
+        $token = 'cbdfb8e3304270a8ef107eeb19729f397a1fe1e045bf2e704e4f62c5242e91b6';
+
+        $this->getService()->collect($this->baseRequest(['payer' => self::PAYER, 'instrument' => ['token' => ['token' => $token]]]));
+        $this->assertSame(['token' => ['token' => $token]], RestCarrierMock::instance()->parameters()['instrument']);
+
+        $this->getService()->collect($this->baseRequest(['payer' => self::PAYER, 'instrument' => ['token' => ['token' => $token, 'installments' => '3']]]));
+        $this->assertSame(['token' => ['token' => $token, 'installments' => 3]], RestCarrierMock::instance()->parameters()['instrument']);
+    }
+
+    public function testItSendsTheCreditChosenFromTheInstrumentInformation()
+    {
+        $token = 'cbdfb8e3304270a8ef107eeb19729f397a1fe1e045bf2e704e4f62c5242e91b6';
+        $option = $this->getService()->instrumentInformation(['instrument' => ['token' => ['token' => $token]]])->credits()[0];
+
+        $this->getService()->collect($this->baseRequest([
+            'payer' => self::PAYER,
+            'instrument' => ['token' => ['token' => $token], 'credit' => $option->toCredit(6)],
+        ]));
+
+        $this->assertSame(
+            ['code' => '0', 'type' => '00', 'groupCode' => 'C', 'installment' => 6],
+            RestCarrierMock::instance()->parameters()['instrument']['credit'],
+        );
+    }
+
+    public function testItSendsThePocketOfTheCard()
+    {
+        $token = 'cbdfb8e3304270a8ef107eeb19729f397a1fe1e045bf2e704e4f62c5242e91b6';
+
+        $this->getService()->collect($this->baseRequest(['payer' => self::PAYER, 'instrument' => ['pocket' => 10, 'token' => ['token' => $token]]]));
+        $this->assertSame('10', RestCarrierMock::instance()->parameters()['instrument']['pocket']);
+
+        $this->getService()->collect($this->baseRequest(['payer' => self::PAYER, 'instrument' => ['token' => ['token' => $token]]]));
+        $this->assertArrayNotHasKey('pocket', RestCarrierMock::instance()->parameters()['instrument']);
     }
 }

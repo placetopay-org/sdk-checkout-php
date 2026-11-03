@@ -14,7 +14,7 @@ class BaseTestCase extends TestCase
         return array_replace([
             'client' => RestCarrierMock::client(),
             'login' => 'not_the_real_login_obviously',
-            'tranKey' => 'kXf6FDYdQTH4dhwWs3Ue',
+            'tranKey' => RestCarrierMock::TRAN_KEY,
             'baseUrl' => 'https://checkout-test.placetopay.com',
         ], $overrides);
     }
